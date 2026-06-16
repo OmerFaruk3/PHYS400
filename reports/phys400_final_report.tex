@@ -1,0 +1,410 @@
+\documentclass{phys400finalreport}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{bm}
+
+\proposaltitle{Quantifying Information Extracted from
+Gravitational Wave Observations: An Empirical Test of the
+Flanagan--Hughes Framework Using GWTC Posterior Samples}
+\studentname{Ömer Faruk Soydan}
+\studentid{2555472}
+\advisor{Assist. Prof. Dr. Doğa Veske}
+\studyfield{Gravitational Wave Astrophysics}
+\studytype{Computational Data Analysis, Theoretical Testing}
+\submissiondate{\today}
+
+\begin{document}
+\makeproposalcover
+\newpage
+
+%==================================================================
+% 1. INTRODUCTION
+%==================================================================
+\introduction
+
+The direct detection of gravitational waves (GWs) has opened a fundamentally
+new observational window into the universe \citep{Abbott2016}. The
+LIGO--Virgo--KAGRA (LVK) collaboration has completed four observing runs since
+the first observation of GW150914. The most recent data release, GWTC-5.0,
+brings the total number of compact binary merger candidates in the cumulative
+catalog to 390
+\citep{theligoscientificcollaboration2026gwtc50observationssecondfourth}. Each
+detected event carries physical information about its
+source, including the component masses, spins, and sky location. This
+information is extracted through Bayesian parameter estimation (PE), which is
+implemented in dedicated samplers such as those in LALInference and its
+successors \citep{Veitch2015}. The resulting posterior samples are made
+publicly available through the Gravitational Wave Open Science Center
+\citep{ligo_scientific_collaboration_and_virgo_2023_8177023} and are read
+using the \texttt{pesummary} library \citep{Hoy2021}. With next-generation
+detectors on the horizon, such as the Einstein Telescope and Cosmic Explorer,
+understanding the information-theoretic limits of these observations has become
+increasingly important.
+
+The amount of information extracted by a gravitational wave observation can be
+quantified rigorously using classical information theory. \citet{Shannon1948}
+showed that the reduction in uncertainty produced by a measurement can be
+expressed in units of bits. In a Bayesian context, this quantity is the
+\citet{1320776d-9e76-337e-a755-73010b6e4b64} (KL) divergence from the posterior
+to the prior distribution. The amount of information that can be extracted
+about a gravitational wave source's parameters is given by the following exact
+expression:
+\begin{equation}
+I_\mathrm{source} = \int d\theta\, p(\theta | s) \log_2\left(\frac{p(\theta | s)}{p(\theta | p(s))}\right)
+\label{eq:exact_info}
+\end{equation}
+where $p(\theta | s)$ is the posterior distribution given the observed signal
+and $p(\theta | p(s))$ is the prior probability distribution given the
+magnitude of the measured signal $p(s)$. Computing this integral directly from
+real GWTC posterior samples is the central goal of this project.
+
+\citet{Flanagan1998} introduced an analytical estimate of this quantity by
+assuming that detector noise is Gaussian and stationary, and that the waveform
+$h(\theta)$ depends linearly on the source parameters $\theta$, where there is
+little prior information. Under these conditions, Equation~\ref{eq:exact_info}
+reduces to:
+\begin{equation}
+I_\mathrm{source} \approx \frac{N_\mathrm{param}}{2} \log_2\left(1 + \frac{\rho^2}{N_\mathrm{param}}\right)
+\label{eq:approx_info}
+\end{equation}
+where $\rho$ is the matched-filter SNR and $N_\mathrm{param} = 15$ for a binary
+black hole system, which covers the component masses, spin magnitudes and
+orientations, and extrinsic parameters. For a GW150914-like system this
+predicts approximately $41.5$ bits. The approximation performs well in the
+high-SNR regime, but it becomes less reliable as the SNR decreases, because
+non-Gaussian features in the posterior become more prominent. Despite its
+elegance, this framework has not been systematically tested against the actual
+posterior distributions produced by modern PE pipelines; the original authors
+themselves describe it as ``a rather crude approximation.''
+
+This project aims to address this gap. The central research question is: of all
+the gravitational wave events detected to date, how much information about
+source parameters has been obtained, and how closely does this agree with the
+prediction of Flanagan and Hughes? We hypothesise that the measured information
+will be close to, but not exactly equal to, the analytical prediction. This
+departure is expected to be most noticeable for parameters that are strongly
+correlated or poorly constrained, and at low signal-to-noise ratio (SNR), where
+non-Gaussian features are most pronounced.
+
+To answer this question, we developed a Python-based pipeline that evaluates
+the KL divergence directly from GWTC posterior samples over the full
+15-dimensional parameter space of a binary black hole merger. Because direct
+density estimation in 15 dimensions is obstructed by the curse of
+dimensionality, the analysis combines several complementary estimators, rather
+than relying on a single method, as described in Section~\ref{sec:methods}. The
+pipeline is first validated on the benchmark event GW150914 and then applied to
+a sample of 35 binary black hole mergers, so that the Flanagan--Hughes
+prediction can be tested both for a single event and across the population. The
+remainder of this report is organised as follows. Section~\ref{sec:methods}
+describes the data and the estimation methods, Section~\ref{sec:results}
+presents and discusses the single-event and population results, and
+Section~\ref{sec:conclusion} summarises the main conclusions.
+
+%==================================================================
+% 2. METHODS
+%==================================================================
+\methods\label{sec:methods}
+
+\subsection*{Data}
+
+The analysis uses the publicly available parameter-estimation (PE) samples
+from the IGWN / Gravitational Wave Open Science Center (GWOSC) GWTC data
+release. The sample comprises 35 binary black hole (BBH) events: GW150914 from
+GWTC-2.1 together with 34 events from GWTC-3, read directly from the public
+HDF5 products. For each event the posterior is taken from the
+\texttt{C01:IMRPhenomXPHM} waveform model and contains of order $10^5$ samples,
+ranging from a few thousand to roughly $2.5 \times 10^5$, while the prior is
+the smaller distribution (about 5000 samples) stored alongside it. The samples
+are read with the \texttt{pesummary} library \citep{Hoy2021}, with a direct
+\texttt{h5py} fallback, and repeated posterior rows are removed before
+analysis. The 15 source parameters are the masses, spin magnitudes and tilts,
+azimuthal spin angles, luminosity distance, inclination, polarization, sky
+position, coalescence time, and phase. The geocentric time $t_c$ is treated on
+a relative scale, because its absolute value of order $10^9$~s would otherwise
+dominate the distance metrics used below.
+
+\subsection*{Information Measure and the Marginal Lower Bound}
+
+The information gained by an observation is the KL divergence of
+Equation~\ref{eq:exact_info}, expressed in bits. To validate the pipeline, the
+one-dimensional (1D) KL divergence of the primary mass $m_1$ of GW150914 was
+computed by two independent routes: kernel density estimation (KDE) and a
+binned entropy calculation. The two agreed to within about $0.01$~bit
+($2.638$ versus $2.626$~bits), confirming that the density estimation and
+integration steps were correct.
+
+Summing the 1D KL divergences of all 15 parameters yields a marginal total.
+This sum is not the full information, because the parameters are correlated.
+The joint divergence decomposes as
+\begin{equation}
+I_\mathrm{joint} = \sum_i I_\mathrm{marg}(i) + \mathrm{TC},
+\label{eq:tc}
+\end{equation}
+where $\mathrm{TC}$ is the total correlation, which is always non-negative. The
+marginal sum therefore provides a guaranteed lower bound on the joint
+information; for GW150914 it is approximately $37$~bits. Recovering the
+remaining contribution requires estimating the joint 15-dimensional density.
+
+\subsection*{The Curse of Dimensionality}
+
+Direct density estimation in 15 dimensions is severely constrained, as
+summarised in Table~\ref{tab:methods}. A direct histogram
+(\texttt{np.histogramdd} \citep{numpy_paper}) with only five bins per axis
+would require $5^{15} \approx 3 \times 10^{10}$ cells, demanding on the order of
+$240$~GB of memory and leaving almost every cell empty for $\sim\!10^5$
+samples; it is therefore infeasible \citep{altman2018curse}. A full
+15-dimensional $k$-nearest-neighbour ($k$-NN) estimator does not converge: its
+value drifts from $25.9$ to $104.9$~bits as the sample size grows, because
+Euclidean distances become poorly calibrated in high dimensions. A multivariate
+Gaussian model \citep{munoz2026kl} gives a fast closed-form result
+($\approx\!41.2$~bits for GW150914, close to the analytical prediction), but it
+assumes a Gaussian posterior and produces an ill-conditioned covariance matrix
+(condition number $\sim\!10^9$). The common cause of all these failures is
+dimensionality.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Comparison of candidate estimators for the 15-dimensional KL
+divergence, evaluated on GW150914. The first four entries illustrate the
+difficulty of direct high-dimensional estimation; Group-KLD is the method
+adopted in this work.}
+\label{tab:methods}
+\begin{tabular}{lllc}
+\toprule
+Estimator & Approach & GW150914 & Status \\
+\midrule
+Marginal 1D sum (KDE)        & Sum of independent 1D KL divergences        & $\approx 37$ bit       & Lower bound only \\
+\texttt{np.histogramdd}      & Direct $n$-dimensional grid count           & ---                    & Infeasible ($\sim$240 GB) \\
+Full 15D $k$-NN              & Neighbour-distance density ratio            & $25.9 \rightarrow 104.9$ bit & Does not converge \\
+Multivariate Gaussian        & Closed-form covariance log-determinant      & $\approx 41.2$ bit     & High-SNR baseline; ill-conditioned \\
+\textbf{Group-KLD (adopted)} & Five $\leq$5D blocks, 3 estimators, TC corr. & $\approx 39$ bit       & Method-independent \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Cross-Checking Against a Published Benchmark}
+
+Because no single estimator can be trusted in many dimensions, the choice of
+method was guided by the benchmark of \citet{alvarezchaves2024}, who tested
+KDE, binning, and nearest-neighbour estimators against analytic ground truth in
+up to ten dimensions. In their results the nearest-neighbour estimator
+converges for the KL divergence, KDE drifts slowly, and binning fails outright.
+Two design rules follow directly: cross-check several estimators rather than
+rely on one, and keep every density estimate to at most five dimensions, where
+all of these methods remain reliable.
+
+\subsection*{Group-KLD with a Hybrid Prior}
+
+The method adopted in this work, here called Group-KLD, applies both rules. The
+15-parameter vector is split into five physically motivated blocks --- the two
+masses; the spin magnitudes and tilts; the azimuthal spin angles; the distance
+and orientation; and the sky position, time, and phase --- each of at most five
+dimensions. The blocks are chosen so that correlations within a block are
+strong while correlations between blocks are weak. Within each block the KL
+divergence is computed with three independent estimators, KDE-Scott
+\citep{scott1992}, KDE-Silverman \citep{silverman1986}, and a $k=1$
+nearest-neighbour estimator \citep{Perez-Cruz2008, Wang2009}, and their mutual
+agreement is used as a consistency check.
+
+Two corrections complete the estimate. First, a hybrid prior addresses cases
+where the posterior extends beyond the support of the stored prior. When a
+posterior overflows the stored prior by more than $0.5\%$, which occurs most
+strongly for the luminosity distance and the masses, the stored prior is
+replaced by an analytic prior for that parameter; otherwise the original prior
+is bootstrap-resampled. This removes a spurious contribution that would
+otherwise arise from the limited support of the stored prior samples. Second, a
+total-correlation correction restores the between-block dependence that the
+block decomposition would otherwise omit:
+\begin{equation}
+I_\mathrm{joint} \approx \sum_{g} I_\mathrm{group}(g) + \left(\mathrm{TC}_\mathrm{post} - \mathrm{TC}_\mathrm{prior}\right),
+\label{eq:group_kld}
+\end{equation}
+where the sum runs over the five blocks. The resulting value is the joint
+information estimate used throughout this report. For GW150914 the three
+estimators agree at $\approx\!39$~bits, and the identical pipeline is applied,
+without modification, to all 35 events.
+
+%==================================================================
+% 3. RESULTS AND DISCUSSION
+%==================================================================
+\resultsanddiscussion\label{sec:results}
+
+\subsection*{Single-Event Information: GW150914}
+
+Applied to the benchmark event GW150914, the Group-KLD method returns a joint
+information of approximately $39$~bits. The three independent estimators
+(KDE-Scott, KDE-Silverman, and the nearest-neighbour estimator) agree closely,
+both in the total and in the per-block contributions, as shown in
+Figure~\ref{fig:groupkld}. The agreement confirms that the result is
+method-independent and not an artefact of any single density estimator. The
+information is dominated by the blocks containing the masses, the distance and
+orientation, and the sky position and time, while the spin-angle blocks
+contribute little, consistent with these parameters being only weakly
+constrained for this event.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.75\textwidth]{grup_kld_hibrit_GW150914.png}
+\caption{Per-block and total Group-KLD information for GW150914, computed with
+three independent estimators (KDE-Scott, KDE-Silverman, and a $k=1$
+nearest-neighbour estimator) using the hybrid prior. The three estimators
+overlap in every block, giving a method-independent total of $\approx\!39$~bits.}
+\label{fig:groupkld}
+\end{figure}
+
+This value can be placed against the other estimators of Table~\ref{tab:methods}.
+The measured information orders as expected: the marginal sum
+($\approx\!37$~bits) is a strict lower bound, the correlation-aware Group-KLD
+estimate ($\approx\!39$~bits) lies above it, and both fall below the
+multivariate Gaussian baseline ($\approx\!41.2$~bits) and the Flanagan--Hughes
+prediction ($\approx\!41.5$~bits). The ordering
+$I_\mathrm{marg} \le I_\mathrm{joint} \lesssim I_\mathrm{Gauss} \approx I_\mathrm{FH}$
+is exactly what the decomposition of Equation~\ref{eq:tc} requires. The
+Flanagan--Hughes value is therefore an accurate but slightly high baseline: the
+direct measurement sits about two bits lower, a gap that reflects the genuine
+non-Gaussianity of the posterior, which the Gaussian and analytical estimates
+do not capture.
+
+\subsection*{Population Scaling Across 35 Events}
+
+The same pipeline, applied unchanged to all 35 events, yields information gains
+that span $6.7$~bits for the quietest event (GW200322) to $44.6$~bits for the
+loudest (GW191216). This range is not random: the information grows
+systematically with the loudness of the signal. Figure~\ref{fig:scaling} shows
+the joint information against the network matched-filter SNR, together with
+three candidate fits. A logarithmic law, $I = a\ln(\mathrm{SNR}) + b$, gives the
+best single-variable description (Pearson $r = 0.72$), and outperforms both a
+linear and a power-law fit, as compared in Table~\ref{tab:fits}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{result_test_plot.png}
+\caption{Joint information gain against the median network matched-filter SNR
+for the event sample. The logarithmic fit $I = a\ln(\mathrm{SNR}) + b$
+(solid line) describes the trend better than the linear and power-law
+alternatives (dashed lines). Information increases with signal loudness, as
+expected when it scales with the square of the SNR.}
+\label{fig:scaling}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Fits of the joint information $I$ (in bits) across the event sample.
+The logarithmic dependence on SNR is the best single-variable model; adding the
+total mass $M$ and the number of detectors $n_\mathrm{det}$ raises the explained
+variance to $0.88$.}
+\label{tab:fits}
+\begin{tabular}{lc}
+\hline
+Model & $R^2$ \\
+\hline
+$I = m\,\mathrm{SNR} + c$ \quad (linear)        & 0.52 \\
+$I = A\,\mathrm{SNR}^{p}$ \quad (power law)      & 0.54 \\
+$I = a\ln(\mathrm{SNR}) + b$ \quad (logarithmic) & 0.58 \\
+$I = a\ln(\mathrm{SNR}) + c\ln(M) + d\,n_\mathrm{det}$ & 0.88 \\
+\hline
+\end{tabular}
+\end{table}
+
+The logarithmic dependence is not merely an empirical fit; it is precisely the
+behaviour predicted by Flanagan and Hughes. In the high-SNR limit,
+Equation~\ref{eq:approx_info} reduces to
+$I \approx N_\mathrm{param}\log_2(\mathrm{SNR})$, so the information should grow
+as the logarithm of the SNR. The data confirm this functional form across the
+whole sample, even though the absolute Gaussian assumption is imperfect for
+individual events. In other words, the Flanagan--Hughes framework captures
+\emph{how} information scales with loudness, while the direct measurement is
+needed to pin down its absolute value event by event.
+
+Signal loudness alone, however, explains only part of the variance
+($R^2 = 0.58$). Two further physical factors close most of the remaining gap.
+Adding the total mass and the number of participating detectors gives the
+three-term law
+\begin{equation}
+I = a\ln(\mathrm{SNR}) + c\ln(M) + d\,n_\mathrm{det},
+\label{eq:fulllaw}
+\end{equation}
+which explains $88\%$ of the variance. Each term has a clear physical meaning.
+The coefficient of $\ln(\mathrm{SNR})$ is positive: louder signals carry more
+information. The coefficient of $\ln(M)$ is negative: heavier binaries reveal
+less, because lighter binaries remain in the detectors' sensitive band for many
+more cycles and therefore imprint more measurable structure. The coefficient of
+$n_\mathrm{det}$ is positive: additional detectors tighten the sky-position and
+distance measurements, adding information that a single detector cannot supply.
+
+\subsection*{Limitations}
+
+Three limitations qualify these results. First, although the $\leq$5-dimensional
+blocking keeps each density estimate in a regime where the methods agree, the
+between-block correlation is only approximately recovered through the
+total-correlation correction of Equation~\ref{eq:group_kld}; a fully direct
+15-dimensional joint estimate remains computationally out of reach. Second, the
+stored prior samples do not always cover the full extent of the posterior,
+most notably in luminosity distance and the masses. The hybrid prior corrects
+this where it occurs, but it remains the largest source of systematic
+uncertainty, and an uncorrected Gaussian or nearest-neighbour estimate inflates
+the information in exactly these directions. Third, the population fit uses the
+events for which a usable network SNR could be recovered, and the scatter about
+the single-variable trend is genuine, reflecting differences in mass, detector
+network, and non-Gaussian structure between events rather than measurement
+noise alone.
+
+%==================================================================
+% 4. CONCLUSION
+%==================================================================
+\conclusion\label{sec:conclusion}
+
+This project set out to measure, in bits, how much information about source
+parameters a gravitational wave detection actually provides, and to test how
+well the classic analytical estimate of Flanagan and Hughes survives when
+confronted with real posterior distributions. The information was defined as
+the Kullback--Leibler divergence from the posterior to the prior and computed
+directly from public GWTC parameter-estimation samples. Because no single
+estimator is reliable in the full 15-dimensional parameter space, a grouped
+method (Group-KLD) was developed, in which the parameters are split into five
+physically motivated blocks of at most five dimensions, a hybrid prior removes a
+stored-prior support artefact, and three independent estimators are
+cross-checked for agreement.
+
+The research question can now be answered directly. For the benchmark event
+GW150914 the measured information is approximately $39$~bits, about two bits
+below the Flanagan--Hughes prediction of $41.5$~bits. Across the full sample of
+35 binary black hole events the information ranges from $6.7$ to $44.6$~bits.
+These two findings together show that the Flanagan--Hughes framework is an
+accurate but slightly optimistic baseline: it reproduces the correct order of
+magnitude and, more importantly, the correct functional dependence, while
+overstating the absolute value by a small margin that is traceable to the
+non-Gaussianity of real posteriors.
+
+The central result of the population analysis is a clean scaling law. The
+information grows as the logarithm of the signal-to-noise ratio, exactly as the
+high-SNR limit of the Flanagan--Hughes formula predicts, and a three-term law
+combining loudness, total mass, and the number of participating detectors
+explains $88\%$ of the variance across the catalogue. Louder, lighter binaries
+observed by more detectors are the most informative: louder signals carry more
+information, lighter binaries remain in band for more cycles, and additional
+detectors sharpen the sky-position and distance measurements. This law
+summarises, in a single compact expression, how efficiently the present
+LIGO--Virgo--KAGRA network converts a detection into knowledge about its source.
+
+The significance of these results is twofold. First, they establish an
+information-theoretic benchmark for the current generation of detectors, against
+which the gains promised by next-generation observatories such as the Einstein
+Telescope and Cosmic Explorer can be quantified. Second, they demonstrate that
+a long-standing analytical estimate, while functionally correct, must be
+corrected for non-Gaussianity and finite prior support if it is to give
+accurate per-event numbers, and they provide a method that does so at the scale
+of a full catalogue.
+
+Several directions would extend this work. The pipeline is now fast enough to
+be applied to the complete GWTC-5.0 release, enlarging the sample well beyond
+the 35 events analysed here and tightening the fitted scaling law. The same
+framework could be extended to binary neutron star and neutron star--black hole
+systems, whose posteriors differ in character, and to a population-level
+information measure that treats the catalogue as a whole rather than event by
+event. Finally, neural estimators of mutual information offer a possible route
+to a fully joint 15-dimensional estimate that does not rely on the block
+decomposition, should the curse of dimensionality be overcome.
+
+\referencessection
+\end{document}

@@ -1,0 +1,140 @@
+{
+  "event": "GW200112",
+  "file": "IGWN-GWTC3p0-v2-GW200112_155838_PEDataRelease_mixed_cosmo.h5",
+  "analysis_group": "C01:IMRPhenomXPHM",
+  "prior_source": "HYBRID (analytic for overflow params, original otherwise)",
+  "hybrid_analytic_params": [
+    "luminosity_distance"
+  ],
+  "hybrid_original_params": [
+    "mass_1_source",
+    "mass_2_source",
+    "a_1",
+    "a_2",
+    "tilt_1",
+    "tilt_2",
+    "phi_12",
+    "phi_jl",
+    "theta_jn",
+    "psi",
+    "azimuth",
+    "zenith",
+    "geocent_time",
+    "phase"
+  ],
+  "overflow_threshold_pct": 0.5,
+  "n_posterior": 48508,
+  "n_prior": 30000,
+  "parameters": [
+    "mass_1_source",
+    "mass_2_source",
+    "a_1",
+    "a_2",
+    "tilt_1",
+    "tilt_2",
+    "phi_12",
+    "phi_jl",
+    "luminosity_distance",
+    "theta_jn",
+    "psi",
+    "azimuth",
+    "zenith",
+    "geocent_time",
+    "phase"
+  ],
+  "groups": [
+    [
+      "mass_1_source",
+      "mass_2_source"
+    ],
+    [
+      "a_1",
+      "a_2",
+      "tilt_1",
+      "tilt_2"
+    ],
+    [
+      "phi_12",
+      "phi_jl",
+      "phase"
+    ],
+    [
+      "luminosity_distance",
+      "theta_jn",
+      "psi"
+    ],
+    [
+      "azimuth",
+      "zenith",
+      "geocent_time"
+    ]
+  ],
+  "avg_between_group_abs_corr": 0.060962169155811693,
+  "methods": [
+    "kde-scott",
+    "kde-silverman",
+    "knn-k1"
+  ],
+  "kld_per_group_nats": {
+    "kde-scott": [
+      5.179163404435868,
+      0.6633275515968706,
+      0.17367893695712053,
+      6.098887856047051,
+      5.435211733441487
+    ],
+    "kde-silverman": [
+      5.179163404435868,
+      0.6695722025596421,
+      0.1738281531784503,
+      6.1226180324454935,
+      5.480365482767545
+    ],
+    "knn-k1": [
+      5.15667081620559,
+      0.5953550095440192,
+      0.14750037028048235,
+      6.262924542798551,
+      7.443811976668032
+    ]
+  },
+  "kld_group_total_nats": {
+    "kde-scott": 17.5502694824784,
+    "kde-silverman": 17.625547275387,
+    "knn-k1": 19.606262715496676
+  },
+  "kld_group_total_bits": {
+    "kde-scott": 25.3196867486365,
+    "kde-silverman": 25.428289647154806,
+    "knn-k1": 28.285857990013234
+  },
+  "tc_posterior_nats": 0.5969143202518765,
+  "tc_prior_nats": 0.0008788100782997077,
+  "tc_correction_nats": 0.5960355101735768,
+  "joint_kld_estimate_bits": {
+    "kde-scott": 26.179584223357644,
+    "kde-silverman": 26.28818712187595,
+    "knn-k1": 29.145755464734382
+  },
+  "joint_kld_estimate_mean_bits": 27.20450893665599,
+  "group_total_mean_bits": 26.344611461934846,
+  "marginal_1d_total_bits": 21.884434953526632,
+  "marginal_1d_method": "kde-scott",
+  "marginal_kld_1d_nats": {
+    "mass_1_source": 1.4588344932582493,
+    "mass_2_source": 3.378760812994551,
+    "a_1": 0.16990512065647384,
+    "a_2": 0.061727947478948525,
+    "tilt_1": 0.061887993480896956,
+    "tilt_2": 0.04442422596342473,
+    "phi_12": 0.009494140300569604,
+    "phi_jl": 0.007035771461899749,
+    "luminosity_distance": 5.1277745127817935,
+    "theta_jn": 0.9139687240063435,
+    "psi": 0.002823150106379288,
+    "azimuth": 0.40978117489503396,
+    "zenith": 1.084142065566114,
+    "geocent_time": 2.3007163397987607,
+    "phase": 0.1378579134350647
+  }
+}
